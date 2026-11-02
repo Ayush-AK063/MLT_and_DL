@@ -1,0 +1,396 @@
+
+==========================================================================================
+LOADING THE CLEANED DATASET FROM LAB ASSIGNMENT 1
+==========================================================================================
+Loaded cleaned dataset from: /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 2/../Lab Assignment 1/Titanic-Dataset-Cleaned.csv
+Shape: 891 rows x 8 columns
+Columns: ['Survived', 'Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked']
+
+First 5 rows:
+   Survived  Pclass     Sex   Age  SibSp  Parch     Fare Embarked
+0         0       3    male  22.0      1      0   7.2500        S
+1         1       1  female  38.0      1      0  71.2833        C
+2         1       3  female  26.0      0      0   7.9250        S
+3         1       1  female  35.0      1      0  53.1000        S
+4         0       3    male  35.0      0      0   8.0500        S
+
+Reminder of what each remaining column means:
+  Survived : 0 = did not survive, 1 = survived
+  Pclass   : ticket class (1 = 1st/best, 3 = 3rd/cheapest)  -> a CATEGORY, even though it's stored as a number
+  Sex      : male / female                                  -> a CATEGORY (text)
+  Age      : age in years                                   -> a NUMBER
+  SibSp    : number of siblings/spouses aboard               -> a NUMBER (count)
+  Parch    : number of parents/children aboard                -> a NUMBER (count)
+  Fare     : ticket price paid                                -> a NUMBER
+  Embarked : port of boarding (C, Q, or S)                    -> a CATEGORY (text)
+
+
+==========================================================================================
+QUESTION 1: VISUALIZING THE DATA WITH DIFFERENT PLOT TYPES
+==========================================================================================
+
+Each plot type below is chosen because it is the RIGHT tool for a
+particular kind of question - just like you wouldn't use a hammer to turn
+a screw. We explain, for each one, WHY that plot type suits that
+particular question.
+
+1a) Scatter plot: Age vs Fare (coloured by Survived) ...
+  Saved plot -> plots/1a_scatter_age_vs_fare.png
+
+   How to read this chart: most passengers cluster at low Fare values
+   regardless of age, with a "tail" of higher-fare (likely 1st class)
+   passengers spread across many ages. There isn't one single obvious
+   straight-line relationship between Age and Fare, but you can visually
+   see that a good number of the low-Fare, "everyday" passengers did NOT
+   survive (more red dots low-down), which hints - just from LOOKING at
+   the picture - that Fare (and by extension, ticket class) might be
+   related to survival chances. A proper statistical/model-based analysis
+   would come later; this plot is just a first visual clue.
+
+
+1b) Bar plot: passenger counts by Sex, split by Survived ...
+Counts table used for the bar plot:
+        Did Not Survive (0)  Survived (1)
+Sex                                      
+female                   81           233
+male                    468           109
+  Saved plot -> plots/1b_bar_survival_by_sex.png
+
+   How to read this chart: this immediately shows a big difference between
+   the two groups - far more female passengers survived than did not,
+   while for male passengers it's the reverse (far more did not survive
+   than did). This is one of the most well-known real patterns in the
+   Titanic dataset ("women and children first").
+
+
+1c) Histogram: distribution of passenger Age ...
+  Saved plot -> plots/1c_histogram_age.png
+
+   How to read this chart: you should see a large spike right around
+   28 years old (that's the median Age value we used
+   back in Lab Assignment 1 to fill in the 177 originally-missing Age
+   entries - so of course a lot of passengers now share that exact value).
+   Besides that artificial spike, most passengers genuinely fall between
+   their late teens and about 40 years old, with far fewer very young
+   children or elderly passengers above 60.
+
+
+1d) Line plot: average Fare by passenger class (Pclass) ...
+Average fare per passenger class:
+Pclass
+1    84.154687
+2    20.662183
+3    13.675550
+Name: Fare, dtype: float64
+  Saved plot -> plots/1d_line_avg_fare_by_class.png
+
+   How to read this chart: the line drops sharply from 1st class to 3rd
+   class, confirming that 1st class tickets cost dramatically more on
+   average than 3rd class ones - exactly what you'd expect for a "better"
+   travel class, and a good sanity check that our cleaned data still makes
+   real-world sense.
+
+
+==========================================================================================
+QUESTION 2: DETECTING OUTLIERS WITH BOX PLOTS (Age and Fare)
+==========================================================================================
+
+WHAT IS AN "OUTLIER"?
+An outlier is a data point that is unusually far away from most of the
+other values in its column - so extreme that it looks like it might be a
+measurement mistake, a rare/unusual real case, or at least a value that
+could distort calculations like the average if not handled carefully.
+
+WHAT IS A BOX PLOT, AND HOW DOES IT FIND OUTLIERS?
+A box plot is a chart built from 5 numbers taken from a sorted column:
+  - the minimum "non-outlier" value
+  - Q1 (the "25th percentile" - 25% of values are below this point)
+  - the median (the middle value, "50th percentile")
+  - Q3 (the "75th percentile" - 75% of values are below this point)
+  - the maximum "non-outlier" value
+It draws a box from Q1 to Q3 (this box contains the "middle 50%" of the
+data, called the IQR = Interquartile Range = Q3 - Q1), a line inside the
+box for the median, and "whiskers" (thin lines) extending out to the
+furthest points that are still considered normal. ANY point drawn further
+out than the whiskers is flagged as an outlier and shown as an individual
+dot.
+
+The standard mathematical rule a box plot uses to decide what counts as
+an outlier (called the "1.5 x IQR rule") is:
+    lower_bound = Q1 - 1.5 x IQR
+    upper_bound = Q3 + 1.5 x IQR
+Any value BELOW lower_bound or ABOVE upper_bound is flagged as an outlier.
+We will calculate this ourselves below (so you can see the exact numbers
+and exact outlier rows, not just look at a picture), and then also draw
+the actual box plot picture that the assignment asks for.
+
+
+--- Outlier detection for 'Age' ---
+Q1 (25th percentile): 22.00
+Q3 (75th percentile): 35.00
+IQR (Q3 - Q1)       : 13.00
+Lower bound (Q1 - 1.5*IQR): 2.50
+Upper bound (Q3 + 1.5*IQR): 54.50
+Number of outlier rows found in 'Age': 66 out of 891 total rows (7.4%)
+A few of the actual outlier rows found for 'Age':
+     Survived  Pclass     Sex    Age     Fare
+7           0       3    male   2.00  21.0750
+11          1       1  female  58.00  26.5500
+15          1       2  female  55.00  16.0000
+16          0       3    male   2.00  29.1250
+33          0       2    male  66.00  10.5000
+54          0       1    male  65.00  61.9792
+78          1       2    male   0.83  29.0000
+94          0       3    male  59.00   7.2500
+96          0       1    male  71.00  34.6542
+116         0       3    male  70.50   7.7500
+
+--- Outlier detection for 'Fare' ---
+Q1 (25th percentile): 7.91
+Q3 (75th percentile): 31.00
+IQR (Q3 - Q1)       : 23.09
+Lower bound (Q1 - 1.5*IQR): -26.72
+Upper bound (Q3 + 1.5*IQR): 65.63
+Number of outlier rows found in 'Fare': 116 out of 891 total rows (13.0%)
+
+A few of the actual outlier rows found for 'Fare':
+     Survived  Pclass     Sex   Age      Fare
+1           1       1  female  38.0   71.2833
+27          0       1    male  19.0  263.0000
+31          1       1  female  28.0  146.5208
+34          0       1    male  28.0   82.1708
+52          1       1  female  49.0   76.7292
+61          1       1  female  38.0   80.0000
+62          0       1    male  45.0   83.4750
+72          0       2    male  21.0   73.5000
+88          1       1  female  23.0  263.0000
+102         0       1    male  21.0   77.2875
+
+INTERPRETATION:
+  - 'Age' outliers are mostly on the HIGH end (elderly passengers in their
+    60s-80s) - genuinely unusual ages compared to the bulk of passengers,
+    but still perfectly realistic human ages, not data-entry mistakes.
+  - 'Fare' outliers are almost entirely very HIGH fares (some passengers
+    paid dramatically more than most - these were likely 1st class
+    passengers with large private suites/family bookings). Fare cannot go
+    below 0 in a valid record, so there are no "too low" Fare outliers
+    here.
+  In both cases, these look like genuine, valid extreme values rather
+  than data errors, so the appropriate handling here is normally to KEEP
+  them but be aware of them (for example, remembering they exist is
+  exactly why Question 4 below considers scaling techniques that reduce
+  the influence of such extreme values).
+
+
+Drawing box plots for Age and Fare, side by side ...
+  Saved plot -> plots/2a_boxplots_age_and_fare.png
+Drawing a scatter plot highlighting the specific outlier passengers ...
+  Saved plot -> plots/2b_outliers_highlighted_scatter.png
+
+==========================================================================================
+QUESTION 3: VALIDATION CHECKS AFTER CLEANING
+==========================================================================================
+
+The whole point of this question is to PROVE, with actual checks (not just
+assume), that the cleaning we did in Lab Assignment 1 actually worked and
+that the dataset is now in a trustworthy state. We go through each check
+the assignment lists, one at a time.
+
+--- Check 1: Missing values ---
+Survived    0
+Pclass      0
+Sex         0
+Age         0
+SibSp       0
+Parch       0
+Fare        0
+Embarked    0
+dtype: int64
+PASSED: There are zero missing values left in any column.
+
+--- Check 2: Duplicate records ---
+Number of fully duplicated rows: 116
+FAILED: 116 duplicate row(s) still remain.
+
+--- Check 3: Numerical values are valid ---
+Negative Fare values (impossible - can't pay negative money): 0
+Negative SibSp values (impossible - can't have negative siblings/spouses): 0
+Negative Parch values (impossible - can't have negative parents/children): 0
+Negative Age values (impossible): 0
+PASSED: All numeric columns contain only logically valid (non-negative) values.
+
+--- Check 4: Categorical variables contain only valid categories ---
+Sex      -> values found: {'female', 'male'}      | unexpected values: none
+Embarked -> values found: {'Q', 'C', 'S'}   | unexpected values: none
+Pclass   -> values found: {np.int64(1), np.int64(2), np.int64(3)}     | unexpected values: none
+Survived -> values found: {np.int64(0), np.int64(1)}       | unexpected values: none
+PASSED: Every categorical column only contains its expected, valid categories.
+
+--- Check 5: Dates are correctly formatted ---
+
+This particular Titanic dataset does NOT contain any date/time column at
+all (no "date of travel", "date of birth", etc. is recorded) - so this
+specific check does not literally apply to this dataset. We flag this
+honestly rather than skip the question, and show below the GENERAL
+technique you WOULD use if a date column existed, so the method itself is
+still demonstrated.
+
+If a column called, say, "Booking_Date" existed, you would do:
+
+    df["Booking_Date_parsed"] = pd.to_datetime(df["Booking_Date"], errors="coerce")
+    invalid_dates = df["Booking_Date_parsed"].isnull().sum()
+
+pd.to_datetime(...) tries to convert every value in that column into a
+proper Python "datetime" value. Any text that does NOT look like a valid
+date (e.g. "31/13/2020", or "hello", or a typo) fails to convert.
+"errors='coerce'" tells pandas: "if a value can't be converted, don't
+crash the whole program - just put a missing value (NaN) there instead".
+Counting how many NaNs appear AFTER this conversion (that weren't already
+missing BEFORE it) tells you exactly how many rows had a badly-formatted
+date.
+
+--- Check 6: Domain-specific reasonable ranges ---
+
+"Domain-specific" means using REAL-WORLD KNOWLEDGE about what these
+numbers are allowed to realistically be - not just "is it negative or
+not", but "does this number make sense for a real human being on a real
+ship in 1912?".
+
+Passengers with an unreasonable Age (below 0 or above 100): 0
+Passengers with an unreasonable Fare (below 0 or above 600): 0
+Passengers with an unreasonable Pclass (not 1, 2, or 3): 0
+PASSED: All checked columns fall within reasonable, real-world ranges.
+
+==========================================================================================
+QUESTION 4: FEATURE SCALING (Min-Max Normalization AND Standardization)
+==========================================================================================
+
+WHAT IS "FEATURE SCALING" AND WHY DO IT AT ALL?
+Different numeric columns in this dataset live on very different scales:
+Age ranges roughly 0-80, while Fare ranges roughly 0-512 (and SibSp/Parch
+are small counts, usually 0-8). Many machine learning algorithms (like
+k-nearest-neighbors, or anything using distances/gradients) can end up
+being unfairly dominated by whichever column happens to have the LARGEST
+raw numbers - not because that column is actually more important, but
+purely because of the units it happens to be measured in. Feature scaling
+puts every chosen numeric column onto a comparable scale, so no column
+unfairly dominates just because of its raw size.
+
+WHICH COLUMNS ARE "APPROPRIATE" TO SCALE HERE?
+We select: Age, Fare, SibSp, Parch.
+  - These are all genuinely continuous/count-based NUMERIC measurements.
+We deliberately do NOT scale:
+  - "Survived" -> this is the outcome/label (0 or 1) we would eventually
+    want to predict, not an input measurement - scaling a label doesn't
+    make sense and would only confuse its meaning (0 = no, 1 = yes).
+  - "Pclass" -> although stored as a number (1, 2, 3), it is really a
+    CATEGORY (which class of ticket), not a measured quantity where
+    "2" is meaningfully "twice as much" as "1" - scaling it numerically
+    would misleadingly treat it like a true measurement.
+  - "Sex", "Embarked" -> these are text categories, not numbers at all,
+    so numeric scaling does not apply to them (they would first need a
+    different technique entirely, called "encoding", which is outside
+    this assignment's scope).
+
+Columns selected for scaling: ['Age', 'Fare', 'SibSp', 'Parch']
+
+Original (unscaled) statistics for these columns:
+          Age    Fare   SibSp   Parch
+count  891.00  891.00  891.00  891.00
+mean    29.36   32.20    0.52    0.38
+std     13.02   49.69    1.10    0.81
+min      0.42    0.00    0.00    0.00
+25%     22.00    7.91    0.00    0.00
+50%     28.00   14.45    0.00    0.00
+75%     35.00   31.00    1.00    0.00
+max     80.00  512.33    8.00    6.00
+
+--- METHOD 1: MIN-MAX NORMALIZATION ---
+Formula (applied to every value "x" in a column):
+    x_scaled = (x - min(column)) / (max(column) - min(column))
+This SQUEEZES every value in the column into the range [0, 1] - the
+smallest original value becomes exactly 0, the largest original value
+becomes exactly 1, and everything else lands proportionally in between.
+It's useful when you want every feature bounded within a fixed, known
+range, but it is quite sensitive to outliers (a single extreme max/min
+value stretches or squashes everything else).
+
+Min-Max normalized statistics (every column's min should now be 0.0, max should be 1.0):
+           Age     Fare    SibSp    Parch
+count  891.000  891.000  891.000  891.000
+mean     0.364    0.063    0.065    0.064
+std      0.164    0.097    0.138    0.134
+min      0.000    0.000    0.000    0.000
+25%      0.271    0.015    0.000    0.000
+50%      0.347    0.028    0.000    0.000
+75%      0.435    0.061    0.125    0.000
+max      1.000    1.000    1.000    1.000
+
+First 5 rows after Min-Max normalization (compare to the original table above):
+        Age      Fare  SibSp  Parch
+0  0.271174  0.014151  0.125    0.0
+1  0.472229  0.139136  0.125    0.0
+2  0.321438  0.015469  0.000    0.0
+3  0.434531  0.103644  0.125    0.0
+4  0.434531  0.015713  0.000    0.0
+
+--- METHOD 2: STANDARDIZATION (Z-score scaling) ---
+Formula (applied to every value "x" in a column):
+    x_scaled = (x - mean(column)) / standard_deviation(column)
+This RE-CENTRES every column so its average becomes exactly 0, and
+RE-SCALES it so its standard deviation (a measure of how spread out the
+values are) becomes exactly 1. Unlike Min-Max, standardized values are
+NOT bounded to a fixed [0, 1] range - they can still go quite negative or
+quite positive, but a value's sign and size now directly tell you "how
+many standard deviations above or below the average is this value?",
+which is generally LESS sensitive to a handful of extreme outliers than
+Min-Max normalization is.
+
+Standardized statistics (every column's mean should now be ~0.0, std should be ~1.0):
+           Age     Fare    SibSp    Parch
+count  891.000  891.000  891.000  891.000
+mean     0.000    0.000    0.000    0.000
+std      1.001    1.001    1.001    1.001
+min     -2.224   -0.648   -0.475   -0.474
+25%     -0.566   -0.489   -0.475   -0.474
+50%     -0.105   -0.357   -0.475   -0.474
+75%      0.433   -0.024    0.433   -0.474
+max      3.892    9.667    6.784    6.974
+
+First 5 rows after Standardization (compare to the original table above):
+        Age      Fare     SibSp     Parch
+0 -0.565736 -0.502445  0.432793 -0.473674
+1  0.663861  0.786845  0.432793 -0.473674
+2 -0.258337 -0.488854 -0.474545 -0.473674
+3  0.433312  0.420730  0.432793 -0.473674
+4  0.433312 -0.486337 -0.474545 -0.473674
+
+COMPARING THE TWO METHODS SIDE BY SIDE (using 'Fare' as the example,
+since it has the most extreme outliers of our 4 chosen columns):
+  - The single highest Fare value in the ORIGINAL data becomes exactly
+    1.0 under Min-Max Normalization (by definition, since Min-Max always
+    maps the maximum value to 1.0) - and because that one Fare value is
+    such an extreme outlier, it drags the max upward, so most OTHER
+    passengers' Min-Max-scaled fares end up bunched very close to 0.
+  - Under Standardization, that same extreme Fare value simply becomes a
+    large POSITIVE number (many standard deviations above the mean, with
+    no fixed upper limit of 1.0 it has to squeeze everything else under),
+    so the rest of the passengers' standardized fares are spread out more
+    naturally around 0, without being squashed together by that one
+    outlier.
+  This is exactly why, in practice, Standardization is generally the
+  safer default choice on data with outliers (like Fare here), while
+  Min-Max Normalization is more often preferred when you specifically
+  need every value guaranteed to sit within a fixed [0, 1] range (for
+  example, some neural network input layers expect this).
+
+
+==========================================================================================
+SAVING BOTH SCALED DATASETS
+==========================================================================================
+Saved Min-Max normalized dataset -> /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 2/Titanic-Dataset-MinMaxScaled.csv
+Saved standardized dataset       -> /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 2/Titanic-Dataset-Standardized.csv
+
+All plots were saved inside: /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 2/plots
+
+All 4 questions of Lab Assignment 2 are complete.

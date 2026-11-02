@@ -1,0 +1,390 @@
+
+==========================================================================================
+LOADING THE CLEANED DATASET FROM LAB ASSIGNMENT 1
+==========================================================================================
+Loaded cleaned dataset from: /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 3/../Lab Assignment 1/Titanic-Dataset-Cleaned.csv
+Shape: 891 rows x 8 columns
+Columns: ['Survived', 'Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked']
+   Survived  Pclass     Sex   Age  SibSp  Parch     Fare Embarked
+0         0       3    male  22.0      1      0   7.2500        S
+1         1       1  female  38.0      1      0  71.2833        C
+2         1       3  female  26.0      0      0   7.9250        S
+3         1       1  female  35.0      1      0  53.1000        S
+4         0       3    male  35.0      0      0   8.0500        S
+
+==========================================================================================
+QUESTION 1: DATA SMOOTHING BY BINNING (mean / median / boundaries)
+==========================================================================================
+
+WHAT IS "DATA SMOOTHING", AND WHY DO IT?
+Real-world numeric data is often "noisy" - it jitters up and down a bit
+due to small random fluctuations, even though there's a genuine, smoother
+underlying trend. "Smoothing" means processing the data so that this small
+random jitter is reduced/flattened out, while (hopefully) keeping the
+real, larger pattern intact.
+
+"BINNING" IS ONE WAY TO SMOOTH DATA - HOW IT WORKS:
+  Step 1: SORT the column's values from smallest to largest.
+  Step 2: Split the sorted values into consecutive groups called "bins"
+          (here we use EQUAL-FREQUENCY bins, meaning every bin gets the
+          same NUMBER of values in it - e.g. with a bin size of 4, values
+          1-4 form bin 1, values 5-8 form bin 2, and so on).
+  Step 3: replace every value inside a bin with something calculated FROM
+          that bin, so all the values in the bin become smoother/closer to
+          each other. This assignment asks for 3 different ways of doing
+          this last step:
+            a) BIN MEAN     -> replace every value in the bin with the
+                               bin's average (mean).
+            b) BIN MEDIAN   -> replace every value in the bin with the
+                               bin's middle value (median) instead of the
+                               mean (median is less pulled around by any
+                               one extreme value inside that bin).
+            c) BIN BOUNDARIES -> for each value, look at just the two
+                               EDGE values of its bin (the smallest value
+                               in the bin, and the largest value in the
+                               bin), and replace it with WHICHEVER of
+                               those two edges it is numerically closer
+                               to. Unlike mean/median, this technique
+                               always produces one of the two original
+                               boundary numbers, never a "new" invented
+                               number.
+
+WHICH COLUMN, AND WHAT BIN SIZE?
+We smooth the 'Fare' column (ticket price), because it is a real,
+continuous numeric measurement with plenty of natural variation - a good
+candidate to demonstrate smoothing on. We use a bin size of 20 (so every
+20 sorted passengers form one bin) across the full column, which is small
+enough to visibly show a "staircase" smoothing effect on the graph without
+creating too many tiny bins to see clearly.
+
+--- A small worked example first, on just 12 sample Fare values ---
+Sample of 12 sorted Fare values: [ 0.      7.25    7.775   7.925   8.6625 12.2875 14.5    21.     26.25
+ 31.275  55.     86.5   ]
+
+With 3 bins of 4 values each:
+    Original  Bin Mean Smoothed  Bin Median Smoothed  Bin Boundary Smoothed
+0     0.0000               5.74                 7.51                   0.00
+1     7.2500               5.74                 7.51                   7.92
+2     7.7750               5.74                 7.51                   7.92
+3     7.9250               5.74                 7.51                   7.92
+4     8.6625              14.11                13.39                   8.66
+5    12.2875              14.11                13.39                   8.66
+6    14.5000              14.11                13.39                   8.66
+7    21.0000              14.11                13.39                  21.00
+8    26.2500              49.76                43.14                  26.25
+9    31.2750              49.76                43.14                  26.25
+10   55.0000              49.76                43.14                  26.25
+11   86.5000              49.76                43.14                  86.50
+
+Reading this small example: within each group of 4 sorted values (one
+bin), "Bin Mean Smoothed" replaces all 4 with their average, "Bin Median
+Smoothed" replaces all 4 with their middle value, and "Bin Boundary
+Smoothed" pulls each individual value toward whichever end of its own bin
+(smallest or largest) it was originally closer to.
+
+--- Now applying the same 3 techniques across the full 'Fare' column ---
+  Saved plot -> plots/1_smoothing_full_fare_comparison.png
+  Saved plot -> plots/1_smoothing_zoomed_first_100.png
+
+How to read these charts: the light-gray "Original" line is jagged because
+real Fare values jump around a lot even between neighbouring sorted
+passengers. All three smoothing lines turn that jaggedness into flat
+"steps" (one flat step per bin of 20 passengers) - Bin Mean and Bin Median
+draw a SINGLE flat value across the whole step (median is slightly more
+resistant to a single unusually extreme value inside a bin), while Bin
+Boundary instead snaps every point to one of just two possible values (the
+bin's minimum or its maximum), which is why its line looks more like sharp
+up/down jumps between only two levels within a step, rather than one
+perfectly flat line like mean/median smoothing.
+
+
+==========================================================================================
+QUESTION 2: OUTLIER DETECTION AND REMOVAL USING Z-SCORE
+==========================================================================================
+
+WHAT IS A Z-SCORE?
+A Z-score tells you "how many standard deviations away from the average is
+this particular value?". The formula for a value x in a column is:
+
+    z = (x - mean_of_column) / standard_deviation_of_column
+
+  - z = 0   means the value IS exactly the average.
+  - z = 1   means the value is 1 standard deviation ABOVE the average.
+  - z = -2  means the value is 2 standard deviations BELOW the average.
+
+WHY DOES A LARGE Z-SCORE MEAN "OUTLIER"?
+For data that is roughly bell-shaped (a "normal distribution"), about 99.7%
+of all values naturally fall within 3 standard deviations of the mean
+(this is a well-known statistics result called the "68-95-99.7 rule").
+So if a value's Z-score has an ABSOLUTE VALUE greater than 3 (i.e. it is
+more than 3 standard deviations away from the mean, in EITHER direction),
+it is unusual enough, statistically, to be flagged as an outlier. This is
+the standard, commonly used Z-score threshold, and the one we use here.
+
+Note this is a DIFFERENT outlier-detection method than Lab Assignment 2's
+box-plot/IQR method - IQR is based on percentiles/ranking (works well even
+if the data is skewed), while Z-score is based on the mean and standard
+deviation (works best when the data is roughly bell-shaped). Both are
+valid, standard techniques; this question specifically asks us to use
+Z-score.
+
+Age  -> mean=29.36, std=13.02, outliers with |z|>3: 7
+Fare -> mean=32.20, std=49.69, outliers with |z|>3: 20
+
+Total unique rows flagged as an outlier by Age and/or Fare Z-score: 27
+
+The flagged outlier rows:
+     Survived  Pclass     Sex   Age      Fare
+27          0       1    male  19.0  263.0000
+88          1       1  female  23.0  263.0000
+96          0       1    male  71.0   34.6542
+116         0       3    male  70.5    7.7500
+118         0       1    male  24.0  247.5208
+258         1       1  female  35.0  512.3292
+299         1       1  female  50.0  247.5208
+311         1       1  female  18.0  262.3750
+341         1       1  female  24.0  263.0000
+377         0       1    male  27.0  211.5000
+380         1       1  female  42.0  227.5250
+438         0       1    male  64.0  263.0000
+493         0       1    male  71.0   49.5042
+527         0       1    male  28.0  221.7792
+557         0       1    male  28.0  227.5250
+630         1       1    male  80.0   30.0000
+672         0       2    male  70.0   10.5000
+679         1       1    male  36.0  512.3292
+689         1       1  female  15.0  211.3375
+700         1       1  female  18.0  227.5250
+716         1       1  female  38.0  227.5250
+730         1       1  female  29.0  211.3375
+737         1       1    male  35.0  512.3292
+742         1       1  female  21.0  262.3750
+745         0       1    male  70.0   71.0000
+779         1       1  female  43.0  211.3375
+851         0       3    male  74.0    7.7750
+
+Row count before removal: 891
+Row count after removing Z-score outliers: 864
+Rows removed: 27
+  Saved plot -> plots/2_fare_distribution_before_after_outlier_removal.png
+
+NOTE: Just like in Lab Assignment 2, these Z-score-flagged Age/Fare
+outliers are genuine, realistic extreme values (very high fares, unusually
+elderly passengers) rather than data-entry mistakes. Removing them here is
+done specifically because THIS assignment asks us to practice the "detect
+with Z-score, then remove" workflow end-to-end - in a real project, you
+would think carefully before permanently deleting real, valid data points
+just for being unusual, since it can also throw away genuinely useful
+information. We proceed with the outlier-free dataset for Question 3
+below, since normalization techniques (especially Min-Max and Decimal
+Scaling) are themselves sensitive to extreme outliers, so cleaning them
+first makes the upcoming scaling comparison clearer and fairer.
+
+
+==========================================================================================
+QUESTION 3: SEVEN NORMALIZATION / SCALING TECHNIQUES
+==========================================================================================
+Working on the OUTLIER-REMOVED data from Question 2 (864 rows), columns: ['Age', 'Fare']
+
+Original (unscaled) statistics:
+           Age     Fare
+count  864.000  864.000
+mean    28.979   26.501
+std     12.499   29.400
+min      0.420    0.000
+25%     22.000    7.896
+50%     28.000   13.860
+75%     35.000   29.775
+max     66.000  164.867
+
+--- (a) MIN-MAX NORMALIZATION ---
+Formula: x_scaled = (x - min) / (max - min)
+Squeezes every value into the range [0, 1]. The smallest value in the
+column becomes 0, the largest becomes 1.
+
+           Age     Fare
+count  864.000  864.000
+mean     0.435    0.161
+std      0.191    0.178
+min      0.000    0.000
+25%      0.329    0.048
+50%      0.421    0.084
+75%      0.527    0.181
+max      1.000    1.000
+
+--- (b) MEAN NORMALIZATION ---
+Formula: x_scaled = (x - mean) / (max - min)
+This is very similar to Min-Max, but instead of shifting by the MINIMUM
+value, it shifts by the column's MEAN (average) instead. The result is
+centred much closer to 0 (values below the average become negative,
+values above the average become positive), while still being divided by
+the same (max - min) "range" as Min-Max. scikit-learn does not have a
+single ready-made function for this exact formula, so we calculate it
+ourselves directly with pandas/numpy - this is a good example of how,
+once you understand a formula, you don't strictly need a library function
+for every single technique.
+
+           Age     Fare
+count  864.000  864.000
+mean     0.000   -0.000
+std      0.191    0.178
+min     -0.435   -0.161
+25%     -0.106   -0.113
+50%     -0.015   -0.077
+75%      0.092    0.020
+max      0.565    0.839
+
+--- (c) Z-SCORE METHOD (Standardization) ---
+Formula: x_scaled = (x - mean) / standard_deviation
+This is the exact same Z-score formula from Question 2 - but this time we
+apply it as a SCALING technique (to reshape the whole column), rather than
+as an outlier-detection rule. After this transform, the column's mean
+becomes 0 and its standard deviation becomes 1.
+
+           Age     Fare
+count  864.000  864.000
+mean     0.000   -0.000
+std      1.001    1.001
+min     -2.286   -0.902
+25%     -0.559   -0.633
+50%     -0.078   -0.430
+75%      0.482    0.111
+max      2.964    4.709
+
+--- (d) DECIMAL SCALING ---
+Formula: x_scaled = x / 10^j
+where "j" is the SMALLEST whole number that makes every scaled value's
+absolute size less than 1. In practice: j = the number of digits in the
+largest absolute value in the column (e.g. if the biggest value is 512,
+it has 3 digits, so j = 3, and every value gets divided by 10^3 = 1000).
+This simply "moves the decimal point" of every number the same number of
+places to the left - the simplest of all these techniques, and one
+scikit-learn also has no ready-made function for, so we calculate it
+ourselves.
+
+  Column 'Age': max absolute value = 66.00 -> 2 digits -> dividing every value by 10^2 = 100
+  Column 'Fare': max absolute value = 164.87 -> 3 digits -> dividing every value by 10^3 = 1000
+           Age     Fare
+count  864.000  864.000
+mean     0.290    0.027
+std      0.125    0.029
+min      0.004    0.000
+25%      0.220    0.008
+50%      0.280    0.014
+75%      0.350    0.030
+max      0.660    0.165
+
+--- (e) LOG TRANSFORMER ---
+Formula: x_scaled = natural_log(x)   [natural log, i.e. base "e", matching
+this course's convention - see Lecture 7's Log Transformer notes]
+A log transform is especially useful for columns like Fare that are
+strongly "right-skewed" (most values are small/cheap, but a long tail of
+expensive outliers stretches the column far to the right) - taking the log
+compresses that long tail down and pulls the whole distribution closer to
+a symmetric, bell-like shape, which many statistical methods work better
+with.
+
+IMPORTANT REAL DATA CAVEAT WE CHECKED FOR: natural log of 0 is undefined
+(mathematically, it is negative infinity), and this Titanic dataset
+genuinely contains a small number of passengers with Fare = 0 (crew/staff
+travelling for free, or comped tickets). Applying a plain log(x) here
+would produce invalid "-inf" results for those exact rows. The standard,
+safe fix - and what we use here - is "log1p", i.e. natural_log(x + 1)
+instead of natural_log(x): this keeps log(0) = log(1) = 0 (a valid,
+sensible number) instead of crashing into -infinity, while barely changing
+the result for any larger Fare value. Age has no zero or negative values
+in this dataset, so this caveat only actually matters for Fare, but we
+apply log1p consistently to both columns for safety.
+
+(Confirmed: 15 passenger(s) in this outlier-removed data have Fare = 0, which is exactly why log1p was needed instead of a plain log.)
+           Age     Fare
+count  864.000  864.000
+mean     3.270    2.900
+std      0.614    0.893
+min      0.351    0.000
+25%      3.135    2.186
+50%      3.367    2.699
+75%      3.584    3.427
+max      4.205    5.111
+
+--- (f) MAXABS TRANSFORMER ---
+Formula: x_scaled = x / max(|x|)
+Divides every value by the single LARGEST ABSOLUTE value in the column.
+The largest-magnitude value in the column becomes exactly +1 or -1, and
+every other value lands somewhere inside [-1, 1]. Since both Age and Fare
+here only ever contain positive numbers, this behaves very similarly to
+Min-Max in this particular case (both end up in [0, 1]) - but MaxAbs is
+the better/correct choice in general specifically WHEN a column can
+contain negative numbers too, since (unlike Min-Max) it doesn't shift the
+data's zero point, it only rescales around the existing zero.
+
+           Age     Fare
+count  864.000  864.000
+mean     0.439    0.161
+std      0.189    0.178
+min      0.006    0.000
+25%      0.333    0.048
+50%      0.424    0.084
+75%      0.530    0.181
+max      1.000    1.000
+
+--- (g) INTERQUARTILE SCALER / ROBUST SCALER ---
+Formula: x_scaled = (x - median) / (Q3 - Q1)
+Instead of using the mean/min/max (all of which can be dragged around a
+lot by a single extreme outlier), this technique centres the data using
+the MEDIAN, and scales it using the IQR (Q3 - Q1, the width of just the
+"middle 50%" of the data - see Lab Assignment 2's Q2 for a full
+explanation of Q1/Q3/IQR). Because the median and IQR both ignore the most
+extreme values by design, this scaler is far less affected by outliers
+than any of the other 6 techniques above - which is exactly why it's
+called "Robust" (robust = "not easily thrown off by unusual/extreme
+values").
+
+           Age     Fare
+count  864.000  864.000
+mean     0.075    0.578
+std      0.961    1.344
+min     -2.122   -0.633
+25%     -0.462   -0.273
+50%      0.000    0.000
+75%      0.538    0.727
+max      2.923    6.902
+
+==========================================================================================
+SIDE-BY-SIDE COMPARISON OF ALL 7 TECHNIQUES (Fare column, first 5 rows)
+==========================================================================================
+   Original  Min-Max  Mean Normalization  Z-score  Decimal Scaling  Log Transform (log1p)  MaxAbs  Robust (IQR)
+0     7.250    0.044              -0.117   -0.655            0.007                  2.110   0.044        -0.302
+1    71.283    0.432               0.272    1.524            0.071                  4.281   0.432         2.625
+2     7.925    0.048              -0.113   -0.632            0.008                  2.189   0.048        -0.271
+3    53.100    0.322               0.161    0.905            0.053                  3.991   0.322         1.793
+4     8.050    0.049              -0.112   -0.628            0.008                  2.203   0.049        -0.266
+
+How to read this comparison: notice how differently the SAME 5 original
+Fare values end up looking depending on which technique is used - some
+techniques (Min-Max, MaxAbs) force everything into a tight [0, 1] range,
+Z-score and Robust can produce small negative numbers, Decimal Scaling
+just shifts the decimal point without changing the overall "shape" of the
+numbers at all, and Log Transform visibly compresses big values much more
+aggressively than small ones. There is no single "best" technique for
+every situation - which one to use depends on the shape of your data
+(especially how skewed it is, and how many outliers it has) and on which
+downstream machine learning algorithm you plan to use next.
+
+  Saved plot -> plots/3_scaling_techniques_mean_std_comparison.png
+
+==========================================================================================
+SAVING OUTPUT FILES
+==========================================================================================
+Saved outlier-free dataset (Question 2 result) -> /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 3/Titanic-Dataset-NoOutliers.csv
+Saved 'Min-Max' scaled Age/Fare columns -> /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 3/Titanic-Scaled-Min_Max.csv
+Saved 'Mean Normalization' scaled Age/Fare columns -> /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 3/Titanic-Scaled-Mean_Normalization.csv
+Saved 'Z-score' scaled Age/Fare columns -> /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 3/Titanic-Scaled-Z_score.csv
+Saved 'Decimal Scaling' scaled Age/Fare columns -> /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 3/Titanic-Scaled-Decimal_Scaling.csv
+Saved 'Log Transform (log1p)' scaled Age/Fare columns -> /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 3/Titanic-Scaled-Log_Transform__log1p.csv
+Saved 'MaxAbs' scaled Age/Fare columns -> /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 3/Titanic-Scaled-MaxAbs.csv
+Saved 'Robust (IQR)' scaled Age/Fare columns -> /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 3/Titanic-Scaled-Robust__IQR.csv
+
+All plots were saved inside: /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 3/plots
+
+All 3 questions of Lab Assignment 3 are complete.

@@ -1,0 +1,382 @@
+
+==========================================================================================
+LOADING THE CLEANED DATASET FROM LAB ASSIGNMENT 1
+==========================================================================================
+Loaded cleaned dataset from: /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 4/../Lab Assignment 1/Titanic-Dataset-Cleaned.csv
+Shape: 891 rows x 8 columns
+Columns: ['Survived', 'Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare', 'Embarked']
+   Survived  Pclass     Sex   Age  SibSp  Parch     Fare Embarked
+0         0       3    male  22.0      1      0   7.2500        S
+1         1       1  female  38.0      1      0  71.2833        C
+2         1       3  female  26.0      0      0   7.9250        S
+3         1       1  female  35.0      1      0  53.1000        S
+4         0       3    male  35.0      0      0   8.0500        S
+
+==========================================================================================
+SETUP: ENCODING 'Sex' AND 'Embarked' AS NUMBERS
+==========================================================================================
+
+WHY DO WE NEED TO DO THIS FIRST?
+Correlation and every distance/similarity formula in this assignment
+(Euclidean, Manhattan, Hamming, Cosine, Jaccard, SMC) are all pure MATH
+formulas - they only work on numbers, not text. Our cleaned dataset still
+has two text ("category") columns: 'Sex' (male/female) and 'Embarked'
+(S/C/Q, the port the passenger boarded from). So, before anything else,
+we convert both into numeric 0/1 columns:
+
+  'Sex' -> ONE new column, 'Sex_male' (1 = male, 0 = female). Since there
+           are only 2 possible values, a single 0/1 column is enough to
+           capture the information with no ambiguity.
+
+  'Embarked' -> THREE new columns, one per port: 'Embarked_C',
+           'Embarked_Q', 'Embarked_S' (each is 1 if the passenger boarded
+           there, 0 otherwise). This standard technique is called
+           "ONE-HOT ENCODING" - since Embarked has 3 possible values (not
+           2), we need 3 separate 0/1 columns, exactly one of which is 1
+           for any given passenger.
+
+After encoding, every column is now numeric:
+Survived        int64
+Pclass          int64
+Age           float64
+SibSp           int64
+Parch           int64
+Fare          float64
+Sex_male        int64
+Embarked_C      int64
+Embarked_Q      int64
+Embarked_S      int64
+dtype: object
+
+New shape: 891 rows x 10 columns
+   Survived  Pclass   Age  SibSp  Parch     Fare  Sex_male  Embarked_C  Embarked_Q  Embarked_S
+0         0       3  22.0      1      0   7.2500         1           0           0           1
+1         1       1  38.0      1      0  71.2833         0           1           0           0
+2         1       3  26.0      0      0   7.9250         0           0           0           1
+3         1       1  35.0      1      0  53.1000         0           0           0           1
+4         0       3  35.0      0      0   8.0500         1           0           0           1
+
+==========================================================================================
+QUESTION 1: VISUALIZE THE CORRELATION MATRIX OF FEATURES
+==========================================================================================
+
+WHAT IS A CORRELATION MATRIX?
+For every PAIR of numeric columns, the Pearson correlation coefficient
+"r" (already covered in the lecture notes on measuring feature
+redundancy) measures how strongly the two columns move together:
+
+  r close to +1  -> as one column goes up, the other reliably goes up too
+  r close to -1  -> as one column goes up, the other reliably goes down
+  r close to  0  -> the two columns show no linear relationship
+
+A "correlation matrix" is simply this "r" value computed for EVERY
+possible pair of columns at once, arranged as a square table/grid - the
+diagonal is always exactly 1.0 (any column is perfectly correlated with
+itself).
+
+Full correlation matrix (rounded to 3 decimals):
+            Survived  Pclass    Age  SibSp  Parch   Fare  Sex_male  Embarked_C  Embarked_Q  Embarked_S
+Survived       1.000  -0.338 -0.065 -0.035  0.082  0.257    -0.543       0.168       0.004      -0.150
+Pclass        -0.338   1.000 -0.340  0.083  0.018 -0.549     0.132      -0.243       0.221       0.074
+Age           -0.065  -0.340  1.000 -0.233 -0.172  0.097     0.081       0.030      -0.031      -0.007
+SibSp         -0.035   0.083 -0.233  1.000  0.415  0.160    -0.115      -0.060      -0.026       0.069
+Parch          0.082   0.018 -0.172  0.415  1.000  0.216    -0.245      -0.011      -0.081       0.061
+Fare           0.257  -0.549  0.097  0.160  0.216  1.000    -0.182       0.269      -0.117      -0.162
+Sex_male      -0.543   0.132  0.081 -0.115 -0.245 -0.182     1.000      -0.083      -0.074       0.119
+Embarked_C     0.168  -0.243  0.030 -0.060 -0.011  0.269    -0.083       1.000      -0.148      -0.783
+Embarked_Q     0.004   0.221 -0.031 -0.026 -0.081 -0.117    -0.074      -0.148       1.000      -0.499
+Embarked_S    -0.150   0.074 -0.007  0.069  0.061 -0.162     0.119      -0.783      -0.499       1.000
+  Saved plot -> plots/1_correlation_matrix_heatmap.png
+
+How to read this heatmap: deep red cells mean strong POSITIVE
+correlation, deep blue cells mean strong NEGATIVE correlation, and pale/
+white cells near 0 mean the two features are essentially unrelated
+(linearly). The diagonal is always deep red (value 1.00) since every
+feature is perfectly correlated with itself - that's expected and not
+meaningful on its own. Question 2 below digs into which OFF-diagonal
+cells are strong enough to matter.
+
+
+==========================================================================================
+QUESTION 2: IDENTIFY HIGHLY CORRELATED (REDUNDANT) FEATURES
+==========================================================================================
+
+WHAT COUNTS AS "HIGHLY CORRELATED"?
+There's no single universal cutoff, but a very commonly used rule of
+thumb (and the one we use here) is:
+
+    |r| > 0.7   ->   the two features are considered "highly correlated"
+
+The "| |" (absolute value) matters: a correlation of -0.9 is just as
+"highly correlated" as +0.9 - the SIGN only tells you the DIRECTION of
+the relationship (do they move together or oppositely), while the SIZE
+(ignoring sign) tells you the STRENGTH of the relationship, which is what
+we actually care about for spotting redundancy.
+
+WHY DOES HIGH CORRELATION MEAN "REDUNDANT"?
+If two features are highly correlated, they are carrying almost the SAME
+information - so keeping both barely adds anything a model couldn't
+already infer from just one of them, while still costing extra
+computation and (for many models) potentially causing "multicollinearity"
+problems (unstable, hard-to-trust coefficients). This is exactly the
+"minimizing redundancy" driver of feature selection from the lecture
+notes.
+
+Scanning every feature pair for |r| > 0.7 ...
+
+  'Embarked_C'  <->  'Embarked_S'   r = -0.783  (|r| = 0.783 > 0.7)
+
+WHY THIS PARTICULAR PAIR SHOWS UP:
+'Embarked_C' and 'Embarked_S' come from ONE-HOT ENCODING the same original
+column ('Embarked'), which only has 3 possible values (C, Q, S) and every
+passenger has EXACTLY ONE of them. Since the S port is by far the most
+common (646 of 891 passengers) and C is the second most common, knowing
+"this passenger did NOT board at S" already makes it noticeably more
+likely they boarded at C (because there are only 2 remaining options, and
+C is the bigger one) - hence the strong NEGATIVE correlation between the
+two one-hot columns. This is a textbook example of the well-known "dummy
+variable trap": whenever you one-hot-encode a category into N columns,
+those N columns are never fully independent of each other, because
+knowing all-but-one of them already tells you the last one for free.
+
+
+==========================================================================================
+QUESTION 3: REMOVE REDUNDANT FEATURES
+==========================================================================================
+
+HOW DO WE DECIDE *WHICH* FEATURE TO DROP FROM EACH PAIR?
+For each highly-correlated pair identified in Question 2, we keep the
+feature that is more strongly correlated with 'Survived' (our target/
+label column - the thing we'd ultimately want to predict), and drop the
+other, since the one more related to the actual outcome we care about is
+the more useful one to keep.
+
+  Pair ('Embarked_C', 'Embarked_S'): |corr with Survived| is 0.168 for 'Embarked_C' vs 0.150 for 'Embarked_S' -> keeping 'Embarked_C', dropping 'Embarked_S'
+
+Columns BEFORE removal (10): ['Survived', 'Pclass', 'Age', 'SibSp', 'Parch', 'Fare', 'Sex_male', 'Embarked_C', 'Embarked_Q', 'Embarked_S']
+Columns dropped as redundant: ['Embarked_S']
+Columns AFTER removal (9): ['Survived', 'Pclass', 'Age', 'SibSp', 'Parch', 'Fare', 'Sex_male', 'Embarked_C', 'Embarked_Q']
+
+NOTE: Dropping 'Embarked_S' here also happens to match a second, standard
+data-preparation practice independent of correlation: when one-hot
+encoding a category with N values, it's normal to keep only N-1 of the
+dummy columns (dropping any one of them, e.g. Embarked_S), since the
+dropped column's value can always be perfectly inferred from the other
+N-1 columns being all 0 - keeping all N columns is mathematically
+redundant by construction, which is exactly what the correlation-based
+removal above caught automatically.
+
+
+==========================================================================================
+QUESTION 4: SIX DISTANCE/SIMILARITY MEASURES BETWEEN FEATURES
+==========================================================================================
+
+WHAT ARE WE MEASURING HERE, AND WHY?
+Questions 1-3 spotted redundant features using CORRELATION. This question
+uses 6 DIFFERENT formulas from the lecture notes on measuring feature
+redundancy, applied the same way: to compare pairs of FEATURES (whole
+columns, not individual passengers) against each other, to see if a
+totally different kind of formula agrees with what correlation already
+found.
+
+We split the 10 features (from BEFORE Question 3's removal, so we can
+compare against the same full set Question 1/2 used) into two groups,
+since different formulas suit different kinds of data (this exact
+dense-vs-sparse/binary split is in the lecture notes too):
+
+  DENSE, CONTINUOUS features -> Pclass, Age, SibSp, Parch, Fare
+      (used for Euclidean, Manhattan, and Cosine)
+
+  BINARY (0/1) features -> Survived, Sex_male, Embarked_C, Embarked_Q,
+  Embarked_S
+      (used for Hamming, Jaccard, and SMC)
+
+For the 3 dense-feature formulas, we first STANDARDIZE every column (the
+same Z-score technique from Lab Assignment 3: subtract the mean, divide
+by the standard deviation) - this is essential here, because otherwise
+'Fare' (values up to several hundred) would completely dominate the
+distance calculations over something like 'Pclass' (values only 1-3),
+purely due to its bigger raw numbers, not because it's actually more
+different.
+
+Standardized dense features (first 5 rows):
+   Pclass    Age  SibSp  Parch   Fare
+0   0.827 -0.566  0.433 -0.474 -0.502
+1  -1.566  0.664  0.433 -0.474  0.787
+2   0.827 -0.258 -0.475 -0.474 -0.489
+3  -1.566  0.433  0.433 -0.474  0.421
+4   0.827  0.433 -0.475 -0.474 -0.486
+
+Binary features (first 5 rows):
+   Survived  Sex_male  Embarked_C  Embarked_Q  Embarked_S
+0         0         1           0           0           1
+1         1         0           1           0           0
+2         1         0           0           0           1
+3         1         0           0           0           1
+4         0         1           0           0           1
+
+--- (i) EUCLIDEAN DISTANCE ---
+Formula: d(A, B) = sqrt( sum( (A_i - B_i)^2 ) )
+The "straight-line" distance between two vectors, exactly as covered
+(and hand-verified) in the lecture notes' worked example. Here, each
+"vector" is one STANDARDIZED dense feature column (891 values long, one
+per passenger) - so we're measuring how differently two entire columns
+behave ACROSS ALL PASSENGERS AT ONCE, not comparing two individual
+passengers to each other.
+
+Euclidean distance matrix (dense features):
+        Pclass     Age   SibSp   Parch    Fare
+Pclass   0.000  48.864  40.422  41.823  52.547
+Age     48.864   0.000  46.880  45.710  40.121
+SibSp   40.422  46.880   0.000  32.292  38.698
+Parch   41.823  45.710  32.292   0.000  37.372
+Fare    52.547  40.121  38.698  37.372   0.000
+
+SMALLEST Euclidean distance (= most similar pair): 'SibSp' <-> 'Parch'  (distance = 32.292)
+
+--- (ii) MANHATTAN DISTANCE ---
+Formula: d(A, B) = sum( |A_i - B_i| )
+Also called "city-block" distance - instead of the straight diagonal line
+(Euclidean), it adds up the absolute differences directly, as if you
+could only move along grid streets, never diagonally. It's less sensitive
+to any single huge difference than Euclidean is (because differences
+aren't squared), so it can rank feature pairs slightly differently.
+
+Manhattan distance matrix (dense features):
+          Pclass       Age     SibSp     Parch      Fare
+Pclass     0.000  1203.637  1004.694  1025.928  1187.791
+Age     1203.637     0.000   921.329   962.388   798.992
+SibSp   1004.694   921.329     0.000   474.970   563.538
+Parch   1025.928   962.388   474.970     0.000   574.938
+Fare    1187.791   798.992   563.538   574.938     0.000
+
+SMALLEST Manhattan distance (= most similar pair): 'SibSp' <-> 'Parch'  (distance = 474.970)
+
+--- (iii) HAMMING DISTANCE ---
+Formula: d(A, B) = (number of positions where A_i != B_i) / total positions
+Originally designed for comparing strings/binary codes of equal length -
+here, for two binary (0/1) feature columns, it simply counts, passenger
+by passenger, how often the two columns DISAGREE (one is 0 and the other
+is 1), then divides by the total number of passengers to get a fraction
+between 0 (identical on every passenger) and 1 (opposite on every
+passenger).
+
+Hamming distance matrix (binary features):
+            Survived  Sex_male  Embarked_C  Embarked_Q  Embarked_S
+Survived       0.000     0.787       0.364       0.403       0.617
+Sex_male       0.787     0.000       0.623       0.642       0.383
+Embarked_C     0.364     0.623       0.000       0.275       0.914
+Embarked_Q     0.403     0.642       0.275       0.000       0.811
+Embarked_S     0.617     0.383       0.914       0.811       0.000
+
+SMALLEST Hamming distance (= most similar pair): 'Embarked_C' <-> 'Embarked_Q'  (distance = 0.275)
+
+--- (iv) COSINE SIMILARITY ---
+Formula: cos(A, B) = (A . B) / (||A|| * ||B||)
+Measures the ANGLE between two vectors, ignoring their magnitude/length
+entirely - it asks "do these two columns point in the same DIRECTION
+across passengers?", not "are their raw sizes similar?". A value of 1
+means the two columns point in exactly the same direction (perfectly
+similar pattern), 0 means they're at a right angle (unrelated), and -1
+means they point in exactly opposite directions.
+
+Cosine similarity matrix (dense features):
+        Pclass    Age  SibSp  Parch   Fare
+Pclass   1.000 -0.340  0.083  0.018 -0.549
+Age     -0.340  1.000 -0.233 -0.172  0.097
+SibSp    0.083 -0.233  1.000  0.415  0.160
+Parch    0.018 -0.172  0.415  1.000  0.216
+Fare    -0.549  0.097  0.160  0.216  1.000
+
+LARGEST Cosine similarity (= most similar pair): 'SibSp' <-> 'Parch'  (similarity = 0.415)
+
+--- (v) JACCARD DISTANCE ---
+Formula: distance(A, B) = 1 - [ (A AND B) / (A OR B) ]
+The part in [ ] brackets is the "Jaccard coefficient" from the lecture
+notes: treating each binary column as a SET of passengers (the ones where
+that feature = 1), it's the size of the OVERLAP (passengers where BOTH
+features are 1) divided by the size of the UNION (passengers where
+EITHER feature is 1). Unlike Hamming, Jaccard completely IGNORES
+positions where BOTH columns are 0 together - it only cares about where
+at least one of the two columns is "switched on", which is exactly why
+it's the standard choice for SPARSE/binary data (see the lecture notes'
+dense-vs-sparse grouping).
+
+Jaccard distance matrix (binary features):
+            Survived  Sex_male  Embarked_C  Embarked_Q  Embarked_S
+Survived       0.000     0.865       0.777       0.923       0.715
+Sex_male       0.865     0.000       0.854       0.933       0.436
+Embarked_C     0.777     0.854       0.000       1.000       1.000
+Embarked_Q     0.923     0.933       1.000       0.000       1.000
+Embarked_S     0.715     0.436       1.000       1.000       0.000
+
+SMALLEST Jaccard distance (= most similar pair): 'Sex_male' <-> 'Embarked_S'  (distance = 0.436)
+
+--- (vi) SIMPLE MATCHING COEFFICIENT (SMC) ---
+Formula: SMC(A, B) = (matches) / (total positions)
+                    = (number of positions where A_i == B_i) / total positions
+This is the "mirror image" of Hamming distance and the "complete"
+counterpart to Jaccard: unlike Jaccard, SMC counts BOTH kinds of
+agreement - positions where both columns are 1 AND positions where both
+are 0 - as a "match". This makes SMC the right choice when a shared "0"
+genuinely means something meaningful for both features (dense/complete
+binary data), while Jaccard is better when a shared "0" is just "neither
+feature happened to apply here" (sparse binary data) - exactly the
+distinction drawn in the lecture notes.
+
+Simple Matching Coefficient matrix (binary features):
+            Survived  Sex_male  Embarked_C  Embarked_Q  Embarked_S
+Survived       1.000     0.213       0.636       0.597       0.383
+Sex_male       0.213     1.000       0.377       0.358       0.617
+Embarked_C     0.636     0.377       1.000       0.725       0.086
+Embarked_Q     0.597     0.358       0.725       1.000       0.189
+Embarked_S     0.383     0.617       0.086       0.189       1.000
+
+LARGEST SMC (= most similar pair): 'Embarked_C' <-> 'Embarked_Q'  (SMC = 0.725)
+
+SMC IS EXACTLY "1 - HAMMING DISTANCE":
+Look closely at the two matrices above - for any pair of features, SMC
+always equals 1 - Hamming_distance(that same pair) (e.g. 'Embarked_C' <->
+'Embarked_Q': Hamming = 0.275, SMC = 0.725, and 0.275 + 0.725 = 1.000).
+This makes sense from the formulas themselves: Hamming distance counts
+the fraction of DISAGREEING positions, SMC counts the fraction of
+AGREEING positions, and every position is either agreeing or disagreeing
+- so the two always add up to exactly 1, and they will always rank pairs
+identically (just "flipped").
+
+AN IMPORTANT DISAGREEMENT WITH CORRELATION:
+Question 2 flagged 'Embarked_C' and 'Embarked_S' as "highly correlated"
+(r = -0.783). But look at how ALL THREE binary measures score that exact
+same pair here: Hamming distance = 0.914 (close to
+the maximum of 1 - i.e. very DISSIMILAR), Jaccard distance =
+1.000 (the absolute maximum possible, 1.000), and
+SMC = 0.086 (close to the minimum of 0 - again very
+DISSIMILAR). So Hamming/Jaccard/SMC all say the OPPOSITE of what
+correlation said about this exact pair!
+
+WHY THE DISAGREEMENT IS NOT A MISTAKE - IT'S A DIFFERENCE IN WHAT "SIMILAR"
+MEANS: correlation treats a STRONG relationship in EITHER direction
+(positive or negative) as "these two carry the same information, hence
+redundant" - a passenger who is "not S" is quite predictably "C" here,
+which is exactly why r is large in magnitude. Hamming/Jaccard/SMC, on the
+other hand, are pure AGREEMENT measures - they only count how often the
+two columns show the exact SAME value at the exact same passenger, and
+'Embarked_C'/'Embarked_S' almost NEVER show the same value (whenever one
+is 1 the other is 0, since a passenger can only board from one port) - so
+these measures correctly call them maximally "different", even though
+they're still highly (negatively) PREDICTABLE from each other. This is a
+genuinely important lesson: "redundant" can mean different things under
+different formulas, and a real feature-selection pipeline benefits from
+checking more than one kind of measure, exactly as this question does.
+
+  Saved plot -> plots/4_all_six_distance_similarity_heatmaps.png
+
+==========================================================================================
+SAVING OUTPUT FILES
+==========================================================================================
+Saved fully-encoded (before redundancy removal) dataset -> /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 4/Titanic-Dataset-Encoded.csv
+Saved final, redundancy-free feature-selected dataset -> /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 4/Titanic-Dataset-FeatureSelected.csv
+
+All plots were saved inside: /Users/etech/Desktop/MLT_Python/Lab_assingments/Lab Assignment 4/plots
+
+All 4 questions of Lab Assignment 4 are complete.

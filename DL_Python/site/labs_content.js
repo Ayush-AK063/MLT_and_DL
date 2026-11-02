@@ -1,0 +1,1 @@
+window.LAB_ASSIGNMENTS = [];
